@@ -544,3 +544,21 @@ def test_get_test_params_returns_valid_instance():
     assert "forecasters" in params
     # Should be able to construct without error.
     EnsembleForecaster(**params)
+
+
+def test_ensemble_iterative_predict_raises_not_implemented():
+    """EnsembleForecaster has no separable fitted state for iterative_predict."""
+    y = np.array([10.0, 20.0, 30.0, 40.0, 50.0])
+    f = EnsembleForecaster(forecasters=_default_forecasters())
+    with pytest.raises(NotImplementedError, match="does not support iterative_predict"):
+        f.iterative_predict(y, prediction_horizon=3)
+
+
+def test_ensemble_iterative_forecast_unchanged():
+    """Sanity: iterative_forecast still produces finite forecasts."""
+    y = np.array([10.0, 20.0, 30.0, 40.0, 50.0])
+    preds = EnsembleForecaster(forecasters=_default_forecasters()).iterative_forecast(
+        y, prediction_horizon=3
+    )
+    assert preds.shape == (3,)
+    assert np.all(np.isfinite(preds))

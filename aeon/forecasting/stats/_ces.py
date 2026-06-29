@@ -333,9 +333,12 @@ class CES(BaseForecaster, IterativeForecastingMixin):
         if exog is not None or future_exog is not None:
             raise NotImplementedError("CES does not support exogenous variables.")
         self.fit(y)
-        h = int(prediction_horizon)
+        return self._iterative_forecast_from_fitted(prediction_horizon)
+
+    def _iterative_forecast_from_fitted(self, prediction_horizon):
+        """Roll the fitted CES state forward without refitting."""
         return _ces_forecast_from_states(
-            h,
+            int(prediction_horizon),
             self._states_,
             int(self._n_train_),
             self._fit_m_,
@@ -345,6 +348,32 @@ class CES(BaseForecaster, IterativeForecastingMixin):
             self.beta_real_,
             self.beta_imag_,
         )
+
+    def iterative_predict(
+        self,
+        y,
+        prediction_horizon,
+        exog=None,
+        *,
+        future_exog=None,
+    ):
+        """Recursively forecast from the fitted CES state without refitting.
+
+        Fit-required counterpart to :meth:`iterative_forecast`: rolls the
+        already-fitted CES state forward and never refits. CES does not support
+        exogenous variables, so ``exog`` and ``future_exog`` are accepted for
+        signature compatibility with
+        :class:`~aeon.forecasting.base.IterativeForecastingMixin` only and raise
+        :class:`NotImplementedError` if either is provided.
+        """
+        if exog is not None or future_exog is not None:
+            raise NotImplementedError("CES does not support exogenous variables.")
+        y, exog, future_exog = self._check_iterative_forecast_inputs(
+            y, prediction_horizon, exog, future_exog
+        )
+        if not self.get_tag("fit_is_empty"):
+            self._check_is_fitted()
+        return self._iterative_forecast_from_fitted(prediction_horizon)
 
     # ------------------------------------------------------------------
     # Per-model fit helpers
@@ -737,18 +766,33 @@ class AutoCES(BaseForecaster, IterativeForecastingMixin):
         if exog is not None or future_exog is not None:
             raise NotImplementedError("AutoCES does not support exogenous variables.")
         self.fit(y)
-        best = self.best_model_
-        return _ces_forecast_from_states(
-            int(prediction_horizon),
-            best._states_,
-            int(best._n_train_),
-            best._fit_m_,
-            best._season_code_,
-            best.alpha_real_,
-            best.alpha_imag_,
-            best.beta_real_,
-            best.beta_imag_,
+        return self.best_model_._iterative_forecast_from_fitted(prediction_horizon)
+
+    def iterative_predict(
+        self,
+        y,
+        prediction_horizon,
+        exog=None,
+        *,
+        future_exog=None,
+    ):
+        """Recursively forecast from the fitted AutoCES state without refitting.
+
+        Fit-required counterpart to :meth:`iterative_forecast`: delegates to the
+        already-fitted ``best_model_`` and never refits. AutoCES does not support
+        exogenous variables, so ``exog`` and ``future_exog`` are accepted for
+        signature compatibility with
+        :class:`~aeon.forecasting.base.IterativeForecastingMixin` only and raise
+        :class:`NotImplementedError` if either is provided.
+        """
+        if exog is not None or future_exog is not None:
+            raise NotImplementedError("AutoCES does not support exogenous variables.")
+        y, exog, future_exog = self._check_iterative_forecast_inputs(
+            y, prediction_horizon, exog, future_exog
         )
+        if not self.get_tag("fit_is_empty"):
+            self._check_is_fitted()
+        return self.best_model_._iterative_forecast_from_fitted(prediction_horizon)
 
     @classmethod
     def _get_test_params(cls, parameter_set="default"):

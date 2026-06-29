@@ -151,3 +151,25 @@ def test_scum_invalid_dotm_max_length_raises():
     """SCUM validates the DOTM window length."""
     with pytest.raises(ValueError, match="dotm_max_length"):
         SCUM(dotm_max_length=0).fit(np.arange(5, dtype=np.float64))
+
+
+def test_scum_iterative_predict_raises_not_implemented():
+    """SCUM refits its ensemble each call, so iterative_predict is unsupported."""
+    y = np.arange(10, dtype=np.float64)
+    f = SCUM()
+    with pytest.raises(NotImplementedError, match="does not support iterative_predict"):
+        f.iterative_predict(y, prediction_horizon=3)
+
+
+def test_scum_iterative_forecast_unchanged():
+    """Sanity: iterative_forecast still combines component forecasts."""
+    y = np.arange(10, dtype=np.float64)
+    forecasters = [
+        ("a", _VectorForecaster([1.0, 2.0, 3.0])),
+        ("b", _VectorForecaster([3.0, 4.0, 5.0])),
+    ]
+    pred = SCUM(forecasters=forecasters, clip_negative=False).iterative_forecast(
+        y, prediction_horizon=3
+    )
+    assert pred.shape == (3,)
+    assert np.all(np.isfinite(pred))

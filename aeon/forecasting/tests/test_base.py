@@ -3,9 +3,10 @@
 import numpy as np
 import pandas as pd
 import pytest
+from sklearn.exceptions import NotFittedError
 
 from aeon.forecasting import NaiveForecaster, RegressionForecaster
-from aeon.forecasting.base import BaseForecaster
+from aeon.forecasting.base import BaseForecaster, IterativeForecastingMixin
 
 
 class _FitCountingRegressionForecaster(RegressionForecaster):
@@ -93,6 +94,108 @@ def test_iterative_forecast_fits_once():
 
     assert isinstance(preds, np.ndarray) and len(preds) == 10
     assert f.fit_calls_ == 1
+
+
+def test_iterative_predict():
+    """Test iterative_predict rolls forward from an existing fit."""
+    y = np.random.rand(50)
+    f = RegressionForecaster(window=4)
+    f.fit(y)
+    preds = f.iterative_predict(y, prediction_horizon=10)
+    assert isinstance(preds, np.ndarray) and len(preds) == 10
+    # Mirror the manual fit + repeated predict-and-append loop.
+    f.fit(y)
+    y_ctx = y.copy()
+    for i in range(0, 10):
+        p = f.predict(y_ctx)
+        assert p == preds[i]
+        y_ctx = np.append(y_ctx, p)
+
+
+def test_iterative_predict_does_not_fit():
+    """Test iterative_predict adds no fit calls beyond the explicit prior fit."""
+    y = np.random.rand(50)
+    f = _FitCountingRegressionForecaster(window=4)
+    f.fit(y)
+    assert f.fit_calls_ == 1
+
+    f.iterative_predict(y, prediction_horizon=10)
+
+    assert f.fit_calls_ == 1
+
+
+def test_iterative_predict_not_fitted_raises():
+    """Test iterative_predict raises when the forecaster is not fitted."""
+    y = np.random.rand(50)
+    f = RegressionForecaster(window=4)
+
+    with pytest.raises(NotFittedError):
+        f.iterative_predict(y, prediction_horizon=5)
+
+
+def test_iterative_predict_fit_is_empty_does_not_raise():
+    """Test iterative_predict skips the fitted check for fit_is_empty models."""
+
+    class _EmptyFitForecaster(BaseForecaster, IterativeForecastingMixin):
+        _tags = {"fit_is_empty": True}
+
+        def __init__(self):
+            super().__init__(horizon=1, axis=1)
+
+        def _predict(self, y, exog=None):
+            return float(y[0, -1])
+
+    f = _EmptyFitForecaster()
+    y = np.random.rand(50)
+    preds = f.iterative_predict(y, prediction_horizon=5)
+    assert isinstance(preds, np.ndarray) and len(preds) == 5
+
+
+def test_iterative_predict_rejects_bad_prediction_horizon():
+    """Test iterative_predict reuses _check_iterative_forecast_inputs validation."""
+    y = np.random.rand(50)
+    f = RegressionForecaster(window=4)
+    f.fit(y)
+
+    with pytest.raises(ValueError, match="must be greater than or equal to 1"):
+        f.iterative_predict(y, prediction_horizon=0)
+
+
+def test_iterative_predict_rejects_future_exog_without_exog():
+    """Test iterative_predict rejects future_exog without exog."""
+    y = np.random.rand(50)
+    future_exog = np.random.rand(3, 2)
+    f = RegressionForecaster(window=4)
+    f.fit(y)
+
+    with pytest.raises(ValueError, match="provided together"):
+        f.iterative_predict(y, prediction_horizon=3, future_exog=future_exog)
+
+
+def test_iterative_predict_matches_iterative_forecast():
+    """Test fit + iterative_predict equals a fresh iterative_forecast (base loop)."""
+    y = np.random.rand(50)
+    h = 10
+    g = RegressionForecaster(window=4)
+    expected = g.iterative_forecast(y, prediction_horizon=h)
+
+    f = RegressionForecaster(window=4)
+    f.fit(y)
+    actual = f.iterative_predict(y, prediction_horizon=h)
+
+    assert np.allclose(actual, expected)
+
+
+def test_iterative_predict_horizon_one():
+    """Test the single-step horizon boundary of iterative_predict."""
+    y = np.random.rand(50)
+    f = RegressionForecaster(window=4)
+    f.fit(y)
+
+    preds = f.iterative_predict(y, prediction_horizon=1)
+
+    assert isinstance(preds, np.ndarray) and preds.shape == (1,)
+    assert preds[0] == f.predict(y)
 
 
 def test_iterative_forecast_rejects_future_exog_without_exog():

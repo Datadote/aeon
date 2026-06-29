@@ -308,6 +308,10 @@ class DOTM(BaseForecaster, IterativeForecastingMixin):
         if exog is not None or future_exog is not None:
             raise NotImplementedError("DOTM does not support exog.")
         self.fit(y)
+        return self._iterative_forecast_from_fitted(prediction_horizon)
+
+    def _iterative_forecast_from_fitted(self, prediction_horizon):
+        """Roll the fitted DOTM state forward without refitting."""
         h = int(prediction_horizon)
 
         # The recurrence state at position n - 1 is already stored after fit;
@@ -332,6 +336,32 @@ class DOTM(BaseForecaster, IterativeForecastingMixin):
         if self.decomposition_type_ == "additive":
             return adjusted_fc + seasonal_fc
         return adjusted_fc * seasonal_fc
+
+    def iterative_predict(
+        self,
+        y,
+        prediction_horizon,
+        exog=None,
+        *,
+        future_exog=None,
+    ):
+        """Recursively forecast from the fitted DOTM state without refitting.
+
+        Fit-required counterpart to :meth:`iterative_forecast`: rolls the
+        already-fitted DOTM state forward (including the seasonal recombination)
+        and never refits. DOTM does not support exogenous variables, so ``exog``
+        and ``future_exog`` are accepted for signature compatibility with
+        :class:`~aeon.forecasting.base.IterativeForecastingMixin` only and raise
+        :class:`NotImplementedError` if either is provided.
+        """
+        if exog is not None or future_exog is not None:
+            raise NotImplementedError("DOTM does not support exog.")
+        y, exog, future_exog = self._check_iterative_forecast_inputs(
+            y, prediction_horizon, exog, future_exog
+        )
+        if not self.get_tag("fit_is_empty"):
+            self._check_is_fitted()
+        return self._iterative_forecast_from_fitted(prediction_horizon)
 
     def _validate_seasonal_params(self):
         """Validate seasonal-extension parameters in ``_fit`` (not ``__init__``)."""

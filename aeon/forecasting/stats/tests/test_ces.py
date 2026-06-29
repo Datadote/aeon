@@ -2,6 +2,7 @@
 
 import numpy as np
 import pytest
+from sklearn.exceptions import NotFittedError
 
 from aeon.forecasting.stats import CES, AutoCES
 from aeon.forecasting.stats._ces import (
@@ -11,6 +12,18 @@ from aeon.forecasting.stats._ces import (
 )
 
 Y_EXAMPLE = np.array([2.1, 2.4, 2.8, 3.0, 3.6, 4.1, 4.4, 4.9, 5.3, 5.9, 6.2, 6.8])
+
+
+class _FitCountingCES(CES):
+    """CES test double that counts internal fit calls."""
+
+    def __init__(self, **kwargs):
+        self.fit_calls_ = 0
+        super().__init__(**kwargs)
+
+    def _fit(self, *args, **kwargs):
+        self.fit_calls_ += 1
+        return super()._fit(*args, **kwargs)
 
 
 def test_ces_fit_sets_attributes():
@@ -39,6 +52,77 @@ def test_ces_iterative_forecast_shape_and_finite():
     assert isinstance(pred, np.ndarray)
     assert pred.shape == (h,)
     assert np.all(np.isfinite(pred))
+
+
+def test_ces_iterative_predict_matches_iterative_forecast():
+    """Fit + iterative_predict equals a fresh iterative_forecast for CES."""
+    h = 5
+    expected = CES().iterative_forecast(Y_EXAMPLE, prediction_horizon=h)
+
+    f = CES()
+    f.fit(Y_EXAMPLE)
+    actual = f.iterative_predict(Y_EXAMPLE, prediction_horizon=h)
+
+    assert isinstance(actual, np.ndarray) and actual.shape == (h,)
+    assert np.allclose(actual, expected)
+
+
+def test_ces_iterative_predict_does_not_refit():
+    """CES.iterative_predict adds no fit calls beyond the explicit prior fit."""
+    f = _FitCountingCES()
+    f.fit(Y_EXAMPLE)
+    assert f.fit_calls_ == 1
+
+    f.iterative_predict(Y_EXAMPLE, prediction_horizon=5)
+
+    assert f.fit_calls_ == 1
+
+
+def test_ces_iterative_predict_not_fitted_raises():
+    """CES.iterative_predict raises when not fitted."""
+    f = CES()
+    with pytest.raises(NotFittedError):
+        f.iterative_predict(Y_EXAMPLE, prediction_horizon=5)
+
+
+def test_ces_iterative_predict_rejects_exog():
+    """CES.iterative_predict rejects exogenous variables."""
+    f = CES()
+    f.fit(Y_EXAMPLE)
+    with pytest.raises(NotImplementedError, match="does not support exog"):
+        f.iterative_predict(
+            Y_EXAMPLE, prediction_horizon=3, exog=Y_EXAMPLE, future_exog=np.ones(3)
+        )
+
+
+def test_autoces_iterative_predict_matches_iterative_forecast():
+    """Fit + iterative_predict equals a fresh iterative_forecast for AutoCES."""
+    h = 5
+    expected = AutoCES().iterative_forecast(Y_EXAMPLE, prediction_horizon=h)
+
+    f = AutoCES()
+    f.fit(Y_EXAMPLE)
+    actual = f.iterative_predict(Y_EXAMPLE, prediction_horizon=h)
+
+    assert isinstance(actual, np.ndarray) and actual.shape == (h,)
+    assert np.allclose(actual, expected)
+
+
+def test_autoces_iterative_predict_not_fitted_raises():
+    """AutoCES.iterative_predict raises when not fitted."""
+    f = AutoCES()
+    with pytest.raises(NotFittedError):
+        f.iterative_predict(Y_EXAMPLE, prediction_horizon=5)
+
+
+def test_autoces_iterative_predict_rejects_exog():
+    """AutoCES.iterative_predict rejects exogenous variables."""
+    f = AutoCES()
+    f.fit(Y_EXAMPLE)
+    with pytest.raises(NotImplementedError, match="does not support exog"):
+        f.iterative_predict(
+            Y_EXAMPLE, prediction_horizon=3, exog=Y_EXAMPLE, future_exog=np.ones(3)
+        )
 
 
 def test_ces_forecast_matches_iterative_h1():

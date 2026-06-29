@@ -2,6 +2,7 @@
 
 import numpy as np
 import pytest
+from sklearn.exceptions import NotFittedError
 
 from aeon.forecasting.stats._arima import ARIMA, AutoARIMA
 
@@ -233,6 +234,98 @@ def test_iterative_forecast_with_d2():
 #     model.fit(y)
 #     f = model.forecast_
 #     assert np.isclose(118.47506756, f)
+
+
+def test_arima_iterative_predict_matches_iterative_forecast():
+    """Fit + iterative_predict equals a fresh iterative_forecast for ARIMA."""
+    h = 4
+    g = ARIMA(p=1, d=1, q=1)
+    expected = g.iterative_forecast(y, prediction_horizon=h)
+
+    f = ARIMA(p=1, d=1, q=1)
+    f.fit(y)
+    actual = f.iterative_predict(y, prediction_horizon=h)
+
+    assert actual.shape == (h,)
+    assert np.allclose(actual, expected)
+
+
+def test_arima_iterative_predict_matches_iterative_forecast_with_exog():
+    """Fit + iterative_predict equals iterative_forecast with aligned exog."""
+    h = 5
+    y_local = np.arange(40, dtype=float)
+    rng = np.random.RandomState(1)
+    exog = rng.randn(len(y_local), 2)
+    future_exog = rng.randn(h, 2)
+
+    g = ARIMA(p=1, d=1, q=1)
+    expected = g.iterative_forecast(
+        y_local, prediction_horizon=h, exog=exog, future_exog=future_exog
+    )
+
+    f = ARIMA(p=1, d=1, q=1)
+    f.fit(y_local, exog=exog)
+    actual = f.iterative_predict(
+        y_local, prediction_horizon=h, exog=exog, future_exog=future_exog
+    )
+
+    assert actual.shape == (h,)
+    assert np.allclose(actual, expected)
+
+
+def test_arima_iterative_predict_does_not_refit():
+    """ARIMA.iterative_predict adds no fit calls beyond the explicit prior fit."""
+    model = _FitCountingARIMA()
+    model.fit(y)
+    assert model.fit_calls_ == 1
+
+    model.iterative_predict(y, prediction_horizon=3)
+
+    assert model.fit_calls_ == 1
+
+
+def test_arima_iterative_predict_not_fitted_raises():
+    """ARIMA.iterative_predict raises when not fitted."""
+    model = ARIMA(p=1, d=1, q=1)
+    with pytest.raises(NotFittedError):
+        model.iterative_predict(y, prediction_horizon=3)
+
+
+def test_arima_iterative_predict_rejects_wrong_future_exog_length():
+    """ARIMA.iterative_predict propagates future_exog length validation."""
+    h = 3
+    y_local = np.arange(40, dtype=float)
+    rng = np.random.RandomState(2)
+    exog = rng.randn(len(y_local), 2)
+    future_exog = rng.randn(h + 1, 2)  # wrong length
+    model = ARIMA(p=1, d=0, q=1)
+    model.fit(y_local, exog=exog)
+
+    with pytest.raises(ValueError, match="forecast horizon step"):
+        model.iterative_predict(
+            y_local, prediction_horizon=h, exog=exog, future_exog=future_exog
+        )
+
+
+def test_autoarima_iterative_predict_matches_iterative_forecast():
+    """Fit + iterative_predict equals a fresh iterative_forecast for AutoARIMA."""
+    h = 4
+    g = AutoARIMA(max_p=1, max_d=1, max_q=1)
+    expected = g.iterative_forecast(y, prediction_horizon=h)
+
+    f = AutoARIMA(max_p=1, max_d=1, max_q=1)
+    f.fit(y)
+    actual = f.iterative_predict(y, prediction_horizon=h)
+
+    assert actual.shape == (h,)
+    assert np.allclose(actual, expected)
+
+
+def test_autoarima_iterative_predict_not_fitted_raises():
+    """AutoARIMA.iterative_predict raises when not fitted."""
+    f = AutoARIMA()
+    with pytest.raises(NotFittedError):
+        f.iterative_predict(y, prediction_horizon=3)
 
 
 def test_autoarima_fit_sets_model_and_orders_within_bounds():

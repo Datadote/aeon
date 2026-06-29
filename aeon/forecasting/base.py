@@ -260,7 +260,37 @@ class DirectForecastingMixin:
 
 
 class IterativeForecastingMixin:
-    """Mixin class for iterative forecasting."""
+    """Mixin class for iterative (recursive) forecasting.
+
+    Provides two recursive multi-step methods that differ only in whether they
+    fit:
+
+    - :meth:`iterative_forecast` fits a fresh model on ``y`` and then recursively
+      forecasts ``prediction_horizon`` steps (``fit`` is called exactly once).
+    - :meth:`iterative_predict` is the fit-required counterpart: it uses an
+      **already fitted** model to roll ``prediction_horizon`` steps forward from
+      the context ``y`` **without refitting**.
+
+    The full method matrix::
+
+        method                    requires fit?  fits?  meaning
+        fit(y)                    no             yes    estimate state from y
+        predict(y)                yes            no     predict from context y
+        forecast(y)               no             yes    fit on y, then predict
+        iterative_forecast(y, h)  no             yes    fit on y, recurse h steps
+        iterative_predict(y, h)   yes            no     recurse h steps from fit
+
+    ``forecast`` is to ``predict`` as ``iterative_forecast`` is to
+    ``iterative_predict``.
+
+    Closed-form forecasters (``ETS``, ``AutoETS``, ``ARIMA``, ``AutoARIMA``,
+    ``CES``, ``AutoCES``, ``DOTM``) override ``iterative_predict`` to roll their
+    fitted state forward directly; for these the passed ``y`` is used only for
+    validation and the forecast comes from the fitted state. Forecasters that
+    bundle fit and predict and keep no separable fitted state (``Theta``,
+    ``SCUM``, ``EnsembleForecaster``) raise :class:`NotImplementedError` from
+    ``iterative_predict``; use ``iterative_forecast`` for those.
+    """
 
     def iterative_forecast(
         self,
@@ -325,6 +355,108 @@ class IterativeForecastingMixin:
         )
         preds = np.zeros(prediction_horizon)
         self.fit(y, exog=exog)
+        for i in range(prediction_horizon):
+            step_exog = None
+            if future_exog is not None:
+                step_exog = future_exog[i : i + 1]
+            preds[i] = self.predict(y, exog=step_exog)
+            y = np.append(y, preds[i])
+        return preds
+
+    def iterative_predict(
+        self,
+        y,
+        prediction_horizon,
+        exog=None,
+        *,
+        future_exog=None,
+    ) -> np.ndarray:
+        """
+        Recursively forecast ``prediction_horizon`` steps from an existing fit.
+
+        This is the fit-required counterpart to :meth:`iterative_forecast`. Where
+        ``iterative_forecast`` fits a fresh model on ``y`` and then recursively
+        forecasts, ``iterative_predict`` uses an **already fitted** model to roll
+        ``prediction_horizon`` steps forward from the context ``y`` **without
+        refitting**. It never calls ``fit``: the model must already be fitted,
+        and the fitted check mirrors
+        :meth:`~aeon.forecasting.base.BaseForecaster.predict` (skipped only for
+        ``fit_is_empty`` forecasters).
+
+        The method matrix this completes::
+
+            method                    requires fit?  fits?  meaning
+            fit(y)                    no             yes    estimate state from y
+            predict(y)                yes            no     predict from context y
+            forecast(y)               no             yes    fit on y, then predict
+            iterative_forecast(y, h)  no             yes    fit on y, recurse h steps
+            iterative_predict(y, h)   yes            no     recurse h steps from fit
+
+        ``forecast`` is to ``predict`` as ``iterative_forecast`` is to
+        ``iterative_predict``.
+
+        Parameters
+        ----------
+        y : np.ndarray
+            The context time series to forecast from. Must be of shape
+            ``(n_channels, n_timepoints)`` if a multivariate time series.
+        prediction_horizon : int
+            The number of future time steps to forecast.
+        exog : np.ndarray or None, default=None
+            Target-time exogenous data aligned with ``y``. If provided,
+            ``future_exog`` must also be provided.
+        future_exog : np.ndarray or None, default=None
+            Target-time future exogenous data aligned with the forecast horizon.
+            If provided, ``exog`` must also be provided. These values are passed
+            one row at a time to ``predict`` and are not concatenated onto
+            ``exog``.
+
+        Returns
+        -------
+        np.ndarray
+            An array of shape `(prediction_horizon,)` containing the forecasts for
+            each horizon.
+
+        Raises
+        ------
+        NotFittedError
+            If the forecaster has not been fitted (and is not ``fit_is_empty``).
+        ValueError
+            If ``prediction_horizon`` is less than 1.
+        ValueError
+            If only one of ``exog`` and ``future_exog`` is provided.
+        ValueError
+            If ``exog`` is not aligned with ``y``.
+        ValueError
+            If ``future_exog`` is not aligned with ``prediction_horizon``.
+
+        Notes
+        -----
+        The role of ``y`` depends on the forecaster. For forecasters that use the
+        generic recursive-predict loop below (e.g. ``RegressionForecaster``,
+        ``NaiveForecaster``), ``y`` is the live context fed into each ``predict``
+        step. For the closed-form forecasters that override this method (``ETS``,
+        ``AutoETS``, ``ARIMA``, ``AutoARIMA``, ``CES``, ``AutoCES``, ``DOTM``) the
+        forecast is rolled forward from the fitted state and ``y`` is used only
+        for input validation, so the result does not depend on the contents of
+        ``y``. This mirrors the existing divergence between ``predict`` and the
+        closed-form ``iterative_forecast`` overrides.
+
+        Examples
+        --------
+        >>> from aeon.forecasting import RegressionForecaster
+        >>> y = np.array([1.0, 2.0, 3.0, 4.0, 3.0, 2.0, 1.0, 2.0, 3.0, 4.0])
+        >>> f = RegressionForecaster(window=3)
+        >>> _ = f.fit(y)
+        >>> f.iterative_predict(y, 2)
+        array([3., 2.])
+        """
+        y, exog, future_exog = self._check_iterative_forecast_inputs(
+            y, prediction_horizon, exog, future_exog
+        )
+        if not self.get_tag("fit_is_empty"):
+            self._check_is_fitted()
+        preds = np.zeros(prediction_horizon)
         for i in range(prediction_horizon):
             step_exog = None
             if future_exog is not None:

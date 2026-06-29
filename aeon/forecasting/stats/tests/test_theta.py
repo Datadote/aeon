@@ -95,3 +95,19 @@ def test_iterative_forecast_rejects_future_exog():
     future = np.arange(3.0)
     with pytest.raises(NotImplementedError, match="does not support exog"):
         Theta().iterative_forecast(y, prediction_horizon=3, future_exog=future)
+
+
+def test_theta_iterative_predict_raises_not_implemented():
+    """Theta has no separable fitted state, so iterative_predict is unsupported."""
+    y = np.array([1.0, 1.2, 1.4, 1.6, 1.8, 2.0, 2.2, 2.4])
+    f = Theta()
+    with pytest.raises(NotImplementedError, match="does not support iterative_predict"):
+        f.iterative_predict(y, prediction_horizon=3)
+
+
+def test_theta_iterative_forecast_unchanged():
+    """Sanity: iterative_forecast still produces finite forecasts."""
+    y = np.array([1.0, 1.2, 1.4, 1.6, 1.8, 2.0, 2.2, 2.4])
+    preds = Theta().iterative_forecast(y, prediction_horizon=3)
+    assert preds.shape == (3,)
+    assert np.all(np.isfinite(preds))
