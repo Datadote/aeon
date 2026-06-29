@@ -175,7 +175,7 @@ def test_dotm_season_length_one_preserves_statsforecast_reference():
 
 
 def test_dotm_iterative_predict_matches_iterative_forecast_non_seasonal():
-    """fit + iterative_predict equals iterative_forecast (non-seasonal series)."""
+    """Fit + iterative_predict equals iterative_forecast (non-seasonal series)."""
     h = 5
     expected = DOTM().iterative_forecast(Y_EXAMPLE, prediction_horizon=h)
 
@@ -189,7 +189,7 @@ def test_dotm_iterative_predict_matches_iterative_forecast_non_seasonal():
 
 
 def test_dotm_iterative_predict_matches_iterative_forecast_seasonal():
-    """fit + iterative_predict equals iterative_forecast (deseasonalised series)."""
+    """Fit + iterative_predict equals iterative_forecast (deseasonalised series)."""
     h = 8
     forecaster_kwargs = dict(
         season_length=4, decomposition_type="multiplicative", seasonal_test=True

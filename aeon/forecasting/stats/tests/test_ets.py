@@ -392,10 +392,8 @@ def test_autoets_rejects_unstable_multiplicative_seasonal_state():
 
 
 def test_ets_iterative_predict_matches_iterative_forecast():
-    """fit + iterative_predict equals a fresh iterative_forecast for ETS."""
-    y = np.array(
-        [10, 12, 14, 13, 15, 16, 18, 19, 20, 21, 22, 23], dtype=np.float64
-    )
+    """Fit + iterative_predict equals a fresh iterative_forecast for ETS."""
+    y = np.array([10, 12, 14, 13, 15, 16, 18, 19, 20, 21, 22, 23], dtype=np.float64)
     h = 5
     g = ETS(trend_type="additive", seasonality_type="additive", seasonal_period=4)
     expected = g.iterative_forecast(y, prediction_horizon=h)
@@ -410,9 +408,7 @@ def test_ets_iterative_predict_matches_iterative_forecast():
 
 def test_ets_iterative_predict_does_not_refit():
     """ETS.iterative_predict adds no fit calls beyond the explicit prior fit."""
-    y = np.array(
-        [10, 12, 14, 13, 15, 16, 18, 19, 20, 21, 22, 23], dtype=np.float64
-    )
+    y = np.array([10, 12, 14, 13, 15, 16, 18, 19, 20, 21, 22, 23], dtype=np.float64)
     f = _FitCountingETS(
         trend_type="additive", seasonality_type="additive", seasonal_period=4
     )
@@ -426,9 +422,7 @@ def test_ets_iterative_predict_does_not_refit():
 
 def test_ets_iterative_predict_not_fitted_raises():
     """ETS.iterative_predict raises when not fitted."""
-    y = np.array(
-        [10, 12, 14, 13, 15, 16, 18, 19, 20, 21, 22, 23], dtype=np.float64
-    )
+    y = np.array([10, 12, 14, 13, 15, 16, 18, 19, 20, 21, 22, 23], dtype=np.float64)
     f = ETS()
     with pytest.raises(NotFittedError):
         f.iterative_predict(y, prediction_horizon=5)
@@ -436,9 +430,7 @@ def test_ets_iterative_predict_not_fitted_raises():
 
 def test_ets_iterative_predict_rejects_exog():
     """ETS.iterative_predict rejects exogenous variables."""
-    y = np.array(
-        [10, 12, 14, 13, 15, 16, 18, 19, 20, 21, 22, 23], dtype=np.float64
-    )
+    y = np.array([10, 12, 14, 13, 15, 16, 18, 19, 20, 21, 22, 23], dtype=np.float64)
     f = ETS()
     f.fit(y)
     with pytest.raises(NotImplementedError, match="does not support exog"):
@@ -446,7 +438,7 @@ def test_ets_iterative_predict_rejects_exog():
 
 
 def test_autoets_iterative_predict_matches_iterative_forecast():
-    """fit + iterative_predict equals a fresh iterative_forecast for AutoETS."""
+    """Fit + iterative_predict equals a fresh iterative_forecast for AutoETS."""
     h = 5
     g = AutoETS()
     expected = g.iterative_forecast(y_pos, prediction_horizon=h)

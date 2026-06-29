@@ -55,7 +55,7 @@ def test_ces_iterative_forecast_shape_and_finite():
 
 
 def test_ces_iterative_predict_matches_iterative_forecast():
-    """fit + iterative_predict equals a fresh iterative_forecast for CES."""
+    """Fit + iterative_predict equals a fresh iterative_forecast for CES."""
     h = 5
     expected = CES().iterative_forecast(Y_EXAMPLE, prediction_horizon=h)
 
@@ -96,7 +96,7 @@ def test_ces_iterative_predict_rejects_exog():
 
 
 def test_autoces_iterative_predict_matches_iterative_forecast():
-    """fit + iterative_predict equals a fresh iterative_forecast for AutoCES."""
+    """Fit + iterative_predict equals a fresh iterative_forecast for AutoCES."""
     h = 5
     expected = AutoCES().iterative_forecast(Y_EXAMPLE, prediction_horizon=h)
 

@@ -237,7 +237,7 @@ def test_iterative_forecast_with_d2():
 
 
 def test_arima_iterative_predict_matches_iterative_forecast():
-    """fit + iterative_predict equals a fresh iterative_forecast for ARIMA."""
+    """Fit + iterative_predict equals a fresh iterative_forecast for ARIMA."""
     h = 4
     g = ARIMA(p=1, d=1, q=1)
     expected = g.iterative_forecast(y, prediction_horizon=h)
@@ -251,7 +251,7 @@ def test_arima_iterative_predict_matches_iterative_forecast():
 
 
 def test_arima_iterative_predict_matches_iterative_forecast_with_exog():
-    """fit + iterative_predict equals iterative_forecast with aligned exog."""
+    """Fit + iterative_predict equals iterative_forecast with aligned exog."""
     h = 5
     y_local = np.arange(40, dtype=float)
     rng = np.random.RandomState(1)
@@ -308,7 +308,7 @@ def test_arima_iterative_predict_rejects_wrong_future_exog_length():
 
 
 def test_autoarima_iterative_predict_matches_iterative_forecast():
-    """fit + iterative_predict equals a fresh iterative_forecast for AutoARIMA."""
+    """Fit + iterative_predict equals a fresh iterative_forecast for AutoARIMA."""
     h = 4
     g = AutoARIMA(max_p=1, max_d=1, max_q=1)
     expected = g.iterative_forecast(y, prediction_horizon=h)
