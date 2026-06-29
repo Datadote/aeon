@@ -260,7 +260,36 @@ class DirectForecastingMixin:
 
 
 class IterativeForecastingMixin:
-    """Mixin class for iterative forecasting."""
+    """Mixin class for iterative (recursive) forecasting.
+
+    Provides two recursive multi-step methods that differ only in whether they
+    fit:
+
+    - :meth:`iterative_forecast` fits a fresh model on ``y`` and then recursively
+      forecasts ``prediction_horizon`` steps (``fit`` is called exactly once).
+    - :meth:`iterative_predict` is the fit-required counterpart: it uses an
+      **already fitted** model to roll ``prediction_horizon`` steps forward from
+      the context ``y`` **without refitting**.
+
+    The full method matrix::
+
+        method                    requires fit?  fits?  meaning
+        fit(y)                    no             yes    estimate state from y
+        predict(y)                yes            no     predict from context y
+        forecast(y)               no             yes    fit on y, then predict
+        iterative_forecast(y, h)  no             yes    fit on y, recurse h steps
+        iterative_predict(y, h)   yes            no     recurse h steps from fit
+
+    ``forecast`` is to ``predict`` as ``iterative_forecast`` is to
+    ``iterative_predict``.
+
+    Closed-form forecasters (``ETS``, ``AutoETS``, ``ARIMA``, ``AutoARIMA``,
+    ``CES``, ``AutoCES``, ``DOTM``) override ``iterative_predict`` to roll their
+    fitted state forward directly. Forecasters that bundle fit and predict and
+    keep no separable fitted state (``Theta``, ``SCUM``, ``EnsembleForecaster``)
+    raise :class:`NotImplementedError` from ``iterative_predict``; use
+    ``iterative_forecast`` for those.
+    """
 
     def iterative_forecast(
         self,
