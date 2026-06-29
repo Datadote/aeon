@@ -186,6 +186,18 @@ def test_iterative_predict_matches_iterative_forecast():
     assert np.allclose(actual, expected)
 
 
+def test_iterative_predict_horizon_one():
+    """Test the single-step horizon boundary of iterative_predict."""
+    y = np.random.rand(50)
+    f = RegressionForecaster(window=4)
+    f.fit(y)
+
+    preds = f.iterative_predict(y, prediction_horizon=1)
+
+    assert isinstance(preds, np.ndarray) and preds.shape == (1,)
+    assert preds[0] == f.predict(y)
+
+
 def test_iterative_forecast_rejects_future_exog_without_exog():
     """Test future_exog without exog is rejected."""
     y = np.random.rand(50)

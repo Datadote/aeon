@@ -285,10 +285,11 @@ class IterativeForecastingMixin:
 
     Closed-form forecasters (``ETS``, ``AutoETS``, ``ARIMA``, ``AutoARIMA``,
     ``CES``, ``AutoCES``, ``DOTM``) override ``iterative_predict`` to roll their
-    fitted state forward directly. Forecasters that bundle fit and predict and
-    keep no separable fitted state (``Theta``, ``SCUM``, ``EnsembleForecaster``)
-    raise :class:`NotImplementedError` from ``iterative_predict``; use
-    ``iterative_forecast`` for those.
+    fitted state forward directly; for these the passed ``y`` is used only for
+    validation and the forecast comes from the fitted state. Forecasters that
+    bundle fit and predict and keep no separable fitted state (``Theta``,
+    ``SCUM``, ``EnsembleForecaster``) raise :class:`NotImplementedError` from
+    ``iterative_predict``; use ``iterative_forecast`` for those.
     """
 
     def iterative_forecast(
@@ -428,6 +429,18 @@ class IterativeForecastingMixin:
             If ``exog`` is not aligned with ``y``.
         ValueError
             If ``future_exog`` is not aligned with ``prediction_horizon``.
+
+        Notes
+        -----
+        The role of ``y`` depends on the forecaster. For forecasters that use the
+        generic recursive-predict loop below (e.g. ``RegressionForecaster``,
+        ``NaiveForecaster``), ``y`` is the live context fed into each ``predict``
+        step. For the closed-form forecasters that override this method (``ETS``,
+        ``AutoETS``, ``ARIMA``, ``AutoARIMA``, ``CES``, ``AutoCES``, ``DOTM``) the
+        forecast is rolled forward from the fitted state and ``y`` is used only
+        for input validation, so the result does not depend on the contents of
+        ``y``. This mirrors the existing divergence between ``predict`` and the
+        closed-form ``iterative_forecast`` overrides.
 
         Examples
         --------

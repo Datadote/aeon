@@ -469,6 +469,25 @@ def test_autoets_iterative_predict_rejects_exog():
         )
 
 
+def test_ets_iterative_predict_ignores_context_for_closed_form():
+    """Closed-form iterative_predict rolls fitted state forward; y only validates.
+
+    Documents the KTD4 contract: for closed-form forecasters the passed ``y``
+    conditions only validation, so a different context series must not change the
+    forecast (it comes from the fitted state, not from ``y``).
+    """
+    y = np.array([10, 12, 14, 13, 15, 16, 18, 19, 20, 21, 22, 23], dtype=np.float64)
+    f = ETS(trend_type="additive", seasonality_type="additive", seasonal_period=4)
+    f.fit(y)
+
+    from_fit = f.iterative_predict(y, prediction_horizon=5)
+    # A different (and shorter) context series must not change the forecast.
+    other = y[:8] * 0.5 + 3.0
+    from_other = f.iterative_predict(other, prediction_horizon=5)
+
+    assert np.allclose(from_fit, from_other)
+
+
 def test_ets_liklihood_alias_is_deprecated():
     """``ETS.liklihood_`` is a deprecated misspelled alias for ``likelihood_``.
 
