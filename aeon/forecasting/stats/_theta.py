@@ -106,6 +106,26 @@ class Theta(BaseForecaster, IterativeForecastingMixin):
         f, _, _, _ = _fit_predict_numba(y, prediction_horizon, self.theta, self.weight)
         return f
 
+    def iterative_predict(
+        self,
+        y,
+        prediction_horizon,
+        exog=None,
+        *,
+        future_exog=None,
+    ):
+        """``iterative_predict`` is not supported by Theta.
+
+        Theta bundles fitting and forecasting inside :meth:`iterative_forecast`
+        and keeps no separable fitted state to roll forward, so the fit-required
+        ``iterative_predict`` contract cannot be honoured. Use
+        :meth:`iterative_forecast` instead.
+        """
+        raise NotImplementedError(
+            "Theta does not support iterative_predict because it keeps no "
+            "separable fitted state; use iterative_forecast instead."
+        )
+
 
 @njit(cache=True, fastmath=True)
 def _fit_predict_numba(y: np.ndarray, h: int, theta: float, weight: float):

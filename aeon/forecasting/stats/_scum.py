@@ -142,6 +142,26 @@ class SCUM(BaseForecaster, IterativeForecastingMixin):
         self.is_fitted = True
         return forecasts
 
+    def iterative_predict(
+        self,
+        y,
+        prediction_horizon,
+        exog=None,
+        *,
+        future_exog=None,
+    ):
+        """``iterative_predict`` is not supported by SCUM.
+
+        SCUM refits its component ensemble inside :meth:`iterative_forecast`
+        every call and keeps no separable fitted state to roll forward, so the
+        fit-required ``iterative_predict`` contract cannot be honoured. Use
+        :meth:`iterative_forecast` instead.
+        """
+        raise NotImplementedError(
+            "SCUM does not support iterative_predict because it keeps no "
+            "separable fitted state; use iterative_forecast instead."
+        )
+
     def _fit_predict(self, y, prediction_horizon):
         """Fit the SCUM ensemble and return combined forecasts."""
         ensemble = EnsembleForecaster(

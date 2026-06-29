@@ -207,6 +207,26 @@ class EnsembleForecaster(
         self.is_fitted = True
         return predictions
 
+    def iterative_predict(
+        self,
+        y,
+        prediction_horizon,
+        exog=None,
+        *,
+        future_exog=None,
+    ):
+        """``iterative_predict`` is not supported by EnsembleForecaster.
+
+        The ensemble refits its components inside :meth:`iterative_forecast`
+        every call and keeps no separable fitted state to roll forward, so the
+        fit-required ``iterative_predict`` contract cannot be honoured. Use
+        :meth:`iterative_forecast` instead.
+        """
+        raise NotImplementedError(
+            "EnsembleForecaster does not support iterative_predict because it "
+            "keeps no separable fitted state; use iterative_forecast instead."
+        )
+
     def _setup_components(self):
         """Validate parameters and initialise fitted component clones."""
         self.weights_ = self._validate_parameters()
