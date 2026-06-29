@@ -2,8 +2,21 @@
 
 import numpy as np
 import pytest
+from sklearn.exceptions import NotFittedError
 
 from aeon.forecasting.stats._ets import ETS, AutoETS, _validate_parameter
+
+
+class _FitCountingETS(ETS):
+    """ETS test double that counts internal fit calls."""
+
+    def __init__(self, **kwargs):
+        self.fit_calls_ = 0
+        super().__init__(**kwargs)
+
+    def _fit(self, *args, **kwargs):
+        self.fit_calls_ += 1
+        return super()._fit(*args, **kwargs)
 
 
 @pytest.mark.parametrize(
@@ -376,6 +389,92 @@ def test_autoets_rejects_unstable_multiplicative_seasonal_state():
 
     assert np.all(np.isfinite(preds))
     assert np.max(np.abs(preds)) < 10 * np.max(np.abs(y))
+
+
+def test_ets_iterative_predict_matches_iterative_forecast():
+    """fit + iterative_predict equals a fresh iterative_forecast for ETS."""
+    y = np.array(
+        [10, 12, 14, 13, 15, 16, 18, 19, 20, 21, 22, 23], dtype=np.float64
+    )
+    h = 5
+    g = ETS(trend_type="additive", seasonality_type="additive", seasonal_period=4)
+    expected = g.iterative_forecast(y, prediction_horizon=h)
+
+    f = ETS(trend_type="additive", seasonality_type="additive", seasonal_period=4)
+    f.fit(y)
+    actual = f.iterative_predict(y, prediction_horizon=h)
+
+    assert isinstance(actual, np.ndarray) and actual.shape == (h,)
+    assert np.allclose(actual, expected)
+
+
+def test_ets_iterative_predict_does_not_refit():
+    """ETS.iterative_predict adds no fit calls beyond the explicit prior fit."""
+    y = np.array(
+        [10, 12, 14, 13, 15, 16, 18, 19, 20, 21, 22, 23], dtype=np.float64
+    )
+    f = _FitCountingETS(
+        trend_type="additive", seasonality_type="additive", seasonal_period=4
+    )
+    f.fit(y)
+    assert f.fit_calls_ == 1
+
+    f.iterative_predict(y, prediction_horizon=5)
+
+    assert f.fit_calls_ == 1
+
+
+def test_ets_iterative_predict_not_fitted_raises():
+    """ETS.iterative_predict raises when not fitted."""
+    y = np.array(
+        [10, 12, 14, 13, 15, 16, 18, 19, 20, 21, 22, 23], dtype=np.float64
+    )
+    f = ETS()
+    with pytest.raises(NotFittedError):
+        f.iterative_predict(y, prediction_horizon=5)
+
+
+def test_ets_iterative_predict_rejects_exog():
+    """ETS.iterative_predict rejects exogenous variables."""
+    y = np.array(
+        [10, 12, 14, 13, 15, 16, 18, 19, 20, 21, 22, 23], dtype=np.float64
+    )
+    f = ETS()
+    f.fit(y)
+    with pytest.raises(NotImplementedError, match="does not support exog"):
+        f.iterative_predict(y, prediction_horizon=3, exog=y, future_exog=np.ones(3))
+
+
+def test_autoets_iterative_predict_matches_iterative_forecast():
+    """fit + iterative_predict equals a fresh iterative_forecast for AutoETS."""
+    h = 5
+    g = AutoETS()
+    expected = g.iterative_forecast(y_pos, prediction_horizon=h)
+
+    f = AutoETS()
+    f.fit(y_pos)
+    actual = f.iterative_predict(y_pos, prediction_horizon=h)
+
+    assert isinstance(actual, np.ndarray) and actual.shape == (h,)
+    assert np.allclose(actual, expected)
+
+
+def test_autoets_iterative_predict_not_fitted_raises():
+    """AutoETS.iterative_predict raises when not fitted."""
+    f = AutoETS()
+    assert f.wrapped_model_ is None
+    with pytest.raises(NotFittedError):
+        f.iterative_predict(y_pos, prediction_horizon=5)
+
+
+def test_autoets_iterative_predict_rejects_exog():
+    """AutoETS.iterative_predict rejects exogenous variables."""
+    f = AutoETS()
+    f.fit(y_pos)
+    with pytest.raises(NotImplementedError, match="does not support exog"):
+        f.iterative_predict(
+            y_pos, prediction_horizon=3, exog=y_pos, future_exog=np.ones(3)
+        )
 
 
 def test_ets_liklihood_alias_is_deprecated():

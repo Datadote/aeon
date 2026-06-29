@@ -290,6 +290,32 @@ class ETS(BaseForecaster, IterativeForecastingMixin):
         self.fit(y)
         return self._iterative_forecast_from_fitted(prediction_horizon)
 
+    def iterative_predict(
+        self,
+        y,
+        prediction_horizon,
+        exog=None,
+        *,
+        future_exog=None,
+    ):
+        """Recursively forecast from the fitted ETS state without refitting.
+
+        Fit-required counterpart to :meth:`iterative_forecast`: rolls the
+        already-fitted ETS model forward in closed form and never refits. ETS
+        does not support exogenous variables, so ``exog`` and ``future_exog``
+        are accepted for signature compatibility with
+        :class:`~aeon.forecasting.base.IterativeForecastingMixin` only and
+        raise :class:`NotImplementedError` if either is provided.
+        """
+        if exog is not None or future_exog is not None:
+            raise NotImplementedError("ETS does not support exog.")
+        y, exog, future_exog = self._check_iterative_forecast_inputs(
+            y, prediction_horizon, exog, future_exog
+        )
+        if not self.get_tag("fit_is_empty"):
+            self._check_is_fitted()
+        return self._iterative_forecast_from_fitted(prediction_horizon)
+
     def _iterative_forecast_from_fitted(self, prediction_horizon):
         """Forecast multiple steps ahead from fitted ETS state."""
         preds = np.zeros(prediction_horizon)
@@ -511,6 +537,32 @@ class AutoETS(BaseForecaster, IterativeForecastingMixin):
             y, prediction_horizon, exog, future_exog
         )
         self.fit(y, exog=exog)
+        return self.wrapped_model_._iterative_forecast_from_fitted(prediction_horizon)
+
+    def iterative_predict(
+        self,
+        y,
+        prediction_horizon,
+        exog=None,
+        *,
+        future_exog=None,
+    ):
+        """Recursively forecast from the fitted AutoETS state without refitting.
+
+        Fit-required counterpart to :meth:`iterative_forecast`: delegates to the
+        already-fitted wrapped ETS model and never refits. Exogenous variables
+        are not supported by AutoETS, so ``exog`` and ``future_exog`` are
+        accepted for signature compatibility with
+        :class:`~aeon.forecasting.base.IterativeForecastingMixin` only and
+        raise :class:`NotImplementedError` if either is provided.
+        """
+        if exog is not None or future_exog is not None:
+            raise NotImplementedError("AutoETS does not support exog.")
+        y, exog, future_exog = self._check_iterative_forecast_inputs(
+            y, prediction_horizon, exog, future_exog
+        )
+        if not self.get_tag("fit_is_empty"):
+            self._check_is_fitted()
         return self.wrapped_model_._iterative_forecast_from_fitted(prediction_horizon)
 
 
