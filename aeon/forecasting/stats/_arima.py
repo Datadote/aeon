@@ -308,6 +308,34 @@ class ARIMA(BaseForecaster, IterativeForecastingMixin):
             exog=future_exog,
         )
 
+    def iterative_predict(
+        self,
+        y,
+        prediction_horizon,
+        exog=None,
+        *,
+        future_exog=None,
+    ):
+        """Recursively forecast from the fitted ARIMA state without refitting.
+
+        Fit-required counterpart to :meth:`iterative_forecast`: rolls the
+        already-fitted ARIMA model forward and never refits. ARIMA supports
+        exogenous variables, so ``exog`` (aligned with ``y``) and ``future_exog``
+        (aligned with the forecast horizon) may be supplied; only ``future_exog``
+        is used here, as no refit occurs.
+        """
+        y, exog, future_exog = self._check_iterative_forecast_inputs(
+            y, prediction_horizon, exog, future_exog
+        )
+        if not self.get_tag("fit_is_empty"):
+            self._check_is_fitted()
+        if future_exog is not None:
+            future_exog = _exog_as_timepoint_rows(future_exog)
+        return self._iterative_forecast_from_fitted(
+            prediction_horizon=prediction_horizon,
+            exog=future_exog,
+        )
+
     def _iterative_forecast_from_fitted(self, prediction_horizon, exog=None):
         """Recursively forecast from the fitted ARIMA state without refitting."""
         if prediction_horizon < 1:
@@ -526,6 +554,32 @@ class AutoARIMA(BaseForecaster, IterativeForecastingMixin):
             exog = _exog_as_timepoint_rows(exog)
             future_exog = _exog_as_timepoint_rows(future_exog)
         self.fit(y, exog=exog)
+        return self.final_model_._iterative_forecast_from_fitted(
+            prediction_horizon=prediction_horizon,
+            exog=future_exog,
+        )
+
+    def iterative_predict(
+        self,
+        y,
+        prediction_horizon,
+        exog=None,
+        *,
+        future_exog=None,
+    ):
+        """Recursively forecast from the fitted AutoARIMA state without refitting.
+
+        Fit-required counterpart to :meth:`iterative_forecast`: delegates to the
+        already-fitted inner ARIMA model and never refits. Only ``future_exog``
+        (aligned with the forecast horizon) is used, as no refit occurs.
+        """
+        y, exog, future_exog = self._check_iterative_forecast_inputs(
+            y, prediction_horizon, exog, future_exog
+        )
+        if not self.get_tag("fit_is_empty"):
+            self._check_is_fitted()
+        if future_exog is not None:
+            future_exog = _exog_as_timepoint_rows(future_exog)
         return self.final_model_._iterative_forecast_from_fitted(
             prediction_horizon=prediction_horizon,
             exog=future_exog,
