@@ -2,10 +2,23 @@
 
 import numpy as np
 import pytest
+from sklearn.exceptions import NotFittedError
 
 from aeon.forecasting.stats import DOTM
 
 Y_EXAMPLE = np.array([2.1, 2.4, 2.8, 3.0, 3.6, 4.1, 4.4, 4.9, 5.3, 5.9])
+
+
+class _FitCountingDOTM(DOTM):
+    """DOTM test double that counts internal fit calls."""
+
+    def __init__(self, **kwargs):
+        self.fit_calls_ = 0
+        super().__init__(**kwargs)
+
+    def _fit(self, *args, **kwargs):
+        self.fit_calls_ += 1
+        return super()._fit(*args, **kwargs)
 
 
 def test_dotm_fit_sets_attributes():
@@ -159,6 +172,67 @@ def test_dotm_season_length_one_preserves_statsforecast_reference():
     pred = DOTM(season_length=1).iterative_forecast(Y_EXAMPLE, prediction_horizon=5)
 
     np.testing.assert_allclose(pred, expected, rtol=5e-3, atol=5e-3)
+
+
+def test_dotm_iterative_predict_matches_iterative_forecast_non_seasonal():
+    """fit + iterative_predict equals iterative_forecast (non-seasonal series)."""
+    h = 5
+    expected = DOTM().iterative_forecast(Y_EXAMPLE, prediction_horizon=h)
+
+    f = DOTM()
+    f.fit(Y_EXAMPLE)
+    actual = f.iterative_predict(Y_EXAMPLE, prediction_horizon=h)
+
+    assert not f.deseasonalised_
+    assert isinstance(actual, np.ndarray) and actual.shape == (h,)
+    assert np.allclose(actual, expected)
+
+
+def test_dotm_iterative_predict_matches_iterative_forecast_seasonal():
+    """fit + iterative_predict equals iterative_forecast (deseasonalised series)."""
+    h = 8
+    forecaster_kwargs = dict(
+        season_length=4, decomposition_type="multiplicative", seasonal_test=True
+    )
+    expected = DOTM(**forecaster_kwargs).iterative_forecast(
+        _Y_MULT, prediction_horizon=h
+    )
+
+    f = DOTM(**forecaster_kwargs)
+    f.fit(_Y_MULT)
+    actual = f.iterative_predict(_Y_MULT, prediction_horizon=h)
+
+    assert f.deseasonalised_
+    assert isinstance(actual, np.ndarray) and actual.shape == (h,)
+    assert np.allclose(actual, expected)
+
+
+def test_dotm_iterative_predict_does_not_refit():
+    """DOTM.iterative_predict adds no fit calls beyond the explicit prior fit."""
+    f = _FitCountingDOTM()
+    f.fit(Y_EXAMPLE)
+    assert f.fit_calls_ == 1
+
+    f.iterative_predict(Y_EXAMPLE, prediction_horizon=5)
+
+    assert f.fit_calls_ == 1
+
+
+def test_dotm_iterative_predict_not_fitted_raises():
+    """DOTM.iterative_predict raises when not fitted."""
+    f = DOTM()
+    with pytest.raises(NotFittedError):
+        f.iterative_predict(Y_EXAMPLE, prediction_horizon=5)
+
+
+def test_dotm_iterative_predict_rejects_exog():
+    """DOTM.iterative_predict rejects exogenous variables."""
+    f = DOTM()
+    f.fit(Y_EXAMPLE)
+    with pytest.raises(NotImplementedError, match="does not support exog"):
+        f.iterative_predict(
+            Y_EXAMPLE, prediction_horizon=3, exog=Y_EXAMPLE, future_exog=np.ones(3)
+        )
 
 
 def test_dotm_seasonal_test_false_disables_seasonality():
